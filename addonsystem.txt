@@ -2,7 +2,6 @@ if getgenv().hvhubaddons then
     return getgenv().hvhubaddons
 end
 
--- Проверяем поддержку файловой системы
 local function checkFileSystem()
     return type(isfolder) == "function"
         and type(listfiles) == "function"
@@ -11,7 +10,7 @@ local function checkFileSystem()
 end
 
 if not checkFileSystem() then
-    warn("[HVHUB Addons] Executor не поддерживает файловую систему. Аддоны отключены.")
+    warn("[HVHUB Addons] Executor does not support the file system. Add-ons are disabled.")
     return
 end
 
@@ -19,7 +18,6 @@ local AddonsAPI = {}
 local AddonTab = nil
 local LastGroupSide = "Right"
 
--- Функция для проверки, подходит ли аддон для текущей игры
 local function validateGame(addon, fileName)
     local gameField = addon.Game
     if not gameField then return true end
@@ -35,12 +33,11 @@ local function validateGame(addon, fileName)
                 return true
             end
         end
-        return true -- если в таблице нет чисел, считаем что игра любая
+        return true
     end
     return true
 end
 
--- Добавление одного элемента в групбокс
 local function addElement(container, addonName, element)
     if type(element) ~= "table" or not element.Type then return nil end
 
@@ -81,7 +78,7 @@ local function addElement(container, addonName, element)
     end
 
     if not name then
-        warn("[HVHUB Addons] Элемент '" .. tostring(element.Name) .. " (" .. tostring(elemType) .. ")' не загружен: неверное имя.")
+        warn("[HVHUB Addons] Element '" .. tostring(element.Name) .. " (" .. tostring(elemType) .. ")' not loaded: invalid name.")
         return nil
     end
 
@@ -246,11 +243,10 @@ local function addElement(container, addonName, element)
         })
     end
 
-    warn("[HVHUB Addons] Элемент '" .. tostring(element.Name) .. " (" .. tostring(elemType) .. ")' не загружен: неизвестный тип.")
+    warn("[HVHUB Addons] Element '" .. tostring(element.Name) .. " (" .. tostring(elemType) .. ")' not loaded: unknown type.")
     return nil
 end
 
--- Загрузка всех элементов аддона
 local function loadElements(container, addonName, elements)
     if not elements or type(elements) ~= "table" then return end
     for _, element in pairs(elements) do
@@ -261,12 +257,11 @@ local function loadElements(container, addonName, elements)
             end
         end)
         if not ok then
-            warn("[HVHUB Addons] Ошибка в аддоне '" .. addonName .. "': " .. tostring(err))
+            warn("[HVHUB Addons] Error in the add-on '" .. addonName .. "': " .. tostring(err))
         end
     end
 end
 
--- Создание группы с ошибкой
 local function createErrorUI(addonName, errorMsg)
     local groupbox
     if LastGroupSide == "Right" then
@@ -290,7 +285,6 @@ local function createErrorUI(addonName, errorMsg)
     end)
 end
 
--- Определение стороны группы
 local function resolveGroupboxSide(addonSide)
     local side = type(addonSide) == "string" and addonSide:lower() or nil
     if side == "left" then return "Left" end
@@ -304,7 +298,6 @@ local function resolveGroupboxSide(addonSide)
     end
 end
 
--- Сборка окружения для аддона
 local function buildAddonEnv(extras)
     local env = setmetatable(extras or {}, {
         __index = function(_, k)
@@ -316,16 +309,14 @@ local function buildAddonEnv(extras)
     return env
 end
 
--- Загрузка одного аддона
 local function tryLoadAddon(file, fileName)
     local fileContent = readfile(file)
 
     local addonFunc, loadErr = loadstring(fileContent)
     if not addonFunc then
-        error("Синтаксическая ошибка: " .. tostring(loadErr))
+        error("Syntax error: " .. tostring(loadErr))
     end
 
-    -- Определяем стиль mspaint
     local isMspaintStyle = fileContent:find("mspaint%.AddonInfo") or fileContent:find("mspaint%.Groupbox")
 
     if isMspaintStyle then
@@ -344,7 +335,7 @@ local function tryLoadAddon(file, fileName)
         end
 
         if not addonInfo or type(addonInfo.Name) ~= "string" then
-            error("mspaint.AddonInfo не найдена или невалидна.")
+            error("HVHUB.AddonInfo not found or invalid.")
         end
 
         if not validateGame(addonInfo, fileName) then return true end
@@ -418,17 +409,16 @@ local function tryLoadAddon(file, fileName)
         task.spawn(setfenv(realFunc, realEnv))
         return true
     else
-        -- Обычный стиль (не mspaint)
         task.spawn(function()
             local addon = addonFunc()
 
             if type(addon) ~= "table" then
-                warn("[HVHUB Addons] Аддон '" .. fileName .. "' не загружен: неверный тип возврата.")
+                warn("[HVHUB Addons] Add-on '" .. fileName .. "' not loaded: invalid return type.")
                 return
             end
 
             if type(addon.Name) ~= "string" or type(addon.Elements) ~= "table" then
-                warn("[HVHUB Addons] Аддон '" .. fileName .. "' не загружен: неверные Name/Elements.")
+                warn("[HVHUB Addons] Add-on '" .. fileName .. "' not loaded: invalid Name/Elements.")
                 return
             end
 
@@ -470,25 +460,28 @@ local function tryLoadAddon(file, fileName)
     end
 end
 
--- Инициализация системы аддонов
 function AddonsAPI:Initialize(Window)
     if not checkFileSystem() then
-        warn("[HVHUB Addons] Файловая система недоступна. Аддоны отключены.")
+        warn("[HVHUB Addons] File system unavailable. Add-ons disabled.")
         return false
     end
 
     self.Window = Window
 
-    -- Создаём вкладку Addons
     AddonTab = Window:AddTab("Addons", "diamond-plus")
+    AddonTab:UpdateWarningBox({
+        Title = "HVHUB Add-ons",
+        Text = "You can create addon using docs from discord server (discord.gg/BmXuyR3AUP)",
+        IsNormal = false,
+        Visible = true,
+        LockSize = true,
+    })
 
-    -- Создаём папку для аддонов, если её нет
     if not isfolder("HVHUB/Addon") then
         makefolder("HVHUB/Addon")
-        warn("[HVHUB Addons] Создана папка HVHUB/Addon")
+        warn("[HVHUB Addons] Folder created HVHUB/Addon")
     end
 
-    -- Загружаем все файлы из папки
     local files = listfiles("HVHUB/Addon")
     local total = 0
 
@@ -503,14 +496,14 @@ function AddonsAPI:Initialize(Window)
         task.spawn(function()
             local success, errorMessage = pcall(tryLoadAddon, file, fileName)
             if not success then
-                warn("[HVHUB Addons] Ошибка загрузки аддона '" .. fileName .. "': " .. tostring(errorMessage))
+                warn("[HVHUB Addons] Error loading add-on '" .. fileName .. "': " .. tostring(errorMessage))
                 pcall(createErrorUI, fileName:gsub("%.luau?$", ""):gsub("%.txt$", ""), errorMessage)
             end
         end)
     end
 
     if total == 0 then
-        warn("[HVHUB Addons] Аддоны не найдены в папке HVHUB/Addon")
+        warn("[HVHUB Addons] No add-ons found in the folder HVHUB/Addon")
     end
 
     return true
